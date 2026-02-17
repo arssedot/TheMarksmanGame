@@ -89,13 +89,13 @@ public class ScorePanel extends VBox {
                  "-fx-border-width: 0 0 0 2;");
     }
 
-    /** Обновление счёта и количества выстрелов (вызывается с FX-потока). */
+    // обновление счета и количества выстрелов 
     public void updateStats(int score, int shots) {
         scoreValue.setText(String.valueOf(score));
         shotsValue.setText(String.valueOf(shots));
     }
 
-    /* ============ Фабричные методы ============ */
+    // фабричные методы
 
     private static Label label(String text, double size, boolean bold, String color) {
         Label lbl = new Label(text);
