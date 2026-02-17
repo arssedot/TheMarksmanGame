@@ -14,8 +14,8 @@ import ru.arssedot.spring.model.Player;
 import ru.arssedot.spring.model.Target;
 
 /**
- * Отвечает исключительно за отрисовку всех элементов на Canvas.
- * Не содержит игровой логики — только визуализацию.
+ * отвечает исключительно за отрисовку всех элементов на Canvas.
+ * не содержит игровой логики - только визуализацию.
  */
 public class GameRenderer {
 
@@ -33,7 +33,7 @@ public class GameRenderer {
         this.farX = farX;
     }
 
-    /* =================== Фон и сетка =================== */
+    //фон с сеткой
 
     public void drawBackground(GraphicsContext gc) {
         gc.setFill(Color.web("#131a2b"));
@@ -46,7 +46,7 @@ public class GameRenderer {
         for (double y = 0; y < h; y += 40) gc.strokeLine(0, y, w, y);
     }
 
-    /* =================== Направляющие =================== */
+    // направляющие
 
     public void drawGuidelines(GraphicsContext gc) {
         gc.setLineWidth(1.5);
@@ -61,7 +61,7 @@ public class GameRenderer {
         gc.setLineDashes(null);
     }
 
-    /* =================== Зона игрока =================== */
+    //область игрока
 
     public void drawPlayerZone(GraphicsContext gc) {
         double px = Player.PLAYER_X;
@@ -74,7 +74,7 @@ public class GameRenderer {
         gc.fillRect(px - 15, 0, 30, h);
     }
 
-    /* =================== Игрок (треугольник) =================== */
+    //моделька игрока
 
     public void drawPlayer(GraphicsContext gc, double playerY) {
         double px = Player.PLAYER_X;
@@ -100,7 +100,7 @@ public class GameRenderer {
                 3);
     }
 
-    /* =================== Мишень (bullseye) =================== */
+    // мишень
 
     public void drawTarget(GraphicsContext gc, Target t, String color1, String color2) {
         double tx = t.getX();
@@ -120,7 +120,7 @@ public class GameRenderer {
         gc.strokeOval(tx - r, ty - r, r * 2, r * 2);
     }
 
-    /* =================== Стрела =================== */
+    //стрела
 
     public void drawArrow(GraphicsContext gc, Arrow a) {
         double ax = a.getX();
@@ -146,7 +146,7 @@ public class GameRenderer {
                 3);
     }
 
-    /* =================== Эффект попадания =================== */
+    //эффект попадания
 
     public void drawHitEffect(GraphicsContext gc, double hitX, double hitY, long hitTime) {
         long elapsed = System.currentTimeMillis() - hitTime;
@@ -169,7 +169,7 @@ public class GameRenderer {
         gc.strokeOval(hitX - r2, hitY - r2, r2 * 2, r2 * 2);
     }
 
-    /* =================== Рамка поля =================== */
+    //рамка поля
 
     public void drawBorders(GraphicsContext gc) {
         gc.setFill(Color.web("#1e3050"));
@@ -179,7 +179,7 @@ public class GameRenderer {
         gc.fillRect(w - 3, 0, 3, h);
     }
 
-    /* =================== Оверлей паузы =================== */
+    // экран паузы
 
     public void drawPauseOverlay(GraphicsContext gc) {
         gc.setFill(Color.web("#000000", 0.55));
@@ -196,7 +196,7 @@ public class GameRenderer {
         gc.setTextAlign(TextAlignment.LEFT);
     }
 
-    /* =================== Стартовое сообщение =================== */
+    // стратовое сообщение
 
     public void drawStartMessage(GraphicsContext gc) {
         gc.setFill(Color.web("#ecf0f1", 0.6));
@@ -206,7 +206,7 @@ public class GameRenderer {
 
         gc.setFill(Color.web("#7f8c8d", 0.7));
         gc.setFont(Font.font("System", FontWeight.NORMAL, 13));
-        gc.fillText("W / S  или  \u2191 / \u2193 — прицеливание     |     Пробел — выстрел", w / 2, h / 2 + 30);
+        gc.fillText("W / S  или  \u2191 / \u2193 — прицеливание   |   space — выстрел", w / 2, h / 2 + 30);
         gc.setTextAlign(TextAlignment.LEFT);
     }
 }
