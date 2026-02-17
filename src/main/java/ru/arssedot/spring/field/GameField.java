@@ -11,46 +11,45 @@ import ru.arssedot.spring.model.Target;
 import java.util.function.BiConsumer;
 
 /**
- * Игровое поле (Canvas). Содержит игровой цикл, управление состоянием,
+ * Игровое поле. Содержит игровой цикл, управление состоянием,
  * создание сущностей и проверку столкновений.
  * Отрисовка делегируется {@link GameRenderer}.
  */
 public class GameField extends Canvas {
 
-    /* ============ Константы компоновки ============ */
+    //константы компоновки
     public static final double NEAR_X = 380;
     public static final double FAR_X = 520;
     private static final double NEAR_RADIUS = 28;
     private static final double FAR_RADIUS = 14;
 
-    /* ============ Настраиваемые скорости ============ */
+    //настройка скорости
     private volatile double arrowSpeed = 5.0;
     private volatile double targetSpeed = 2.0;
 
-    /* ============ Сущности ============ */
+    //сущности
     private final Player player;
     private volatile Target nearTarget;
     private volatile Target farTarget;
     private volatile Arrow currentArrow;
 
-    /* ============ Состояние игры ============ */
+    //состояние игры
     private volatile int score;
     private volatile int shots;
     private volatile boolean gameRunning;
     private volatile boolean gamePaused;
 
-    /* ============ Потоки ============ */
     private Thread gameLoopThread;
 
-    /* ============ Эффект попадания ============ */
+    //фиксация попадание
     private volatile double hitX;
     private volatile double hitY;
     private volatile long hitTime;
 
-    /* ============ Обратная связь с UI ============ */
+    //наблюдатель для обратной связи с формой
     private BiConsumer<Integer, Integer> onStatsChanged;
 
-    /* ============ Поля рендеринга ============ */
+    //поле рендеринга
     private final double fieldWidth;
     private final double fieldHeight;
     private final GameRenderer renderer;
@@ -65,8 +64,6 @@ public class GameField extends Canvas {
         setFocusTraversable(true);
         render();
     }
-
-    /* ============ Публичные сеттеры ============ */
 
     public void setOnStatsChanged(BiConsumer<Integer, Integer> callback) {
         this.onStatsChanged = callback;
@@ -90,7 +87,7 @@ public class GameField extends Canvas {
         if (farTarget != null) farTarget.setSpeed(speed * 2);
     }
 
-    /* ============ Управление игрой ============ */
+    //управление игрой
 
     public void startGame() {
         if (gameRunning) stopGame();
@@ -151,7 +148,7 @@ public class GameField extends Canvas {
         currentArrow.start();
     }
 
-    /* ============ Игровой цикл (Thread) ============ */
+    //игровой цикл
 
     private void startGameLoop() {
         gameLoopThread = new Thread(() -> {
@@ -179,7 +176,7 @@ public class GameField extends Canvas {
         gameLoopThread.start();
     }
 
-    /* ============ Столкновения ============ */
+    //столкновения 
 
     private void checkCollisions() {
         Arrow arrow = currentArrow;
@@ -208,7 +205,7 @@ public class GameField extends Canvas {
         }
     }
 
-    /* ============ Рендеринг (делегация) ============ */
+    //делегация рендеринга
 
     private void render() {
         GraphicsContext gc = getGraphicsContext2D();
