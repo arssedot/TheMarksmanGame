@@ -15,10 +15,6 @@ import javafx.stage.Stage;
 import ru.arssedot.spring.field.GameField;
 import ru.arssedot.spring.field.ScorePanel;
 
-/**
- * Точка входа приложения «Меткий стрелок».
- * Собирает сцену: игровое поле, панель счёта и кнопки управления.
- */
 public class MarksmanApp extends Application {
 
     private GameField gameField;
@@ -58,7 +54,7 @@ public class MarksmanApp extends Application {
         });
     }
 
-    /* ============ Клавиатура ============ */
+    //клавиатура
 
     private void setupKeyboard(Scene scene) {
         scene.setOnKeyPressed(e -> {
@@ -77,7 +73,7 @@ public class MarksmanApp extends Application {
         });
     }
 
-    /* ============ Панель кнопок ============ */
+    //панель кнопок
 
     private HBox createButtonBar() {
         Button startBtn = styledButton("\u25B6  Начало игры", "#27ae60", "#2ecc71");
@@ -134,7 +130,7 @@ public class MarksmanApp extends Application {
         return btn;
     }
 
-    /* ============ Точка входа ============ */
+    //запуск игры
 
     public static void main(String[] args) {
         launch(args);
