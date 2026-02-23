@@ -1,9 +1,5 @@
 package ru.arssedot.spring.model;
 
-/**
- * Мишень, движущаяся вертикально по направляющей линии.
- * Анимация движения реализована на основе класса {@link Thread}.
- */
 public class Target {
 
     private final double x;
@@ -70,9 +66,15 @@ public class Target {
         return (dx * dx + dy * dy) <= (radius * radius);
     }
 
-    public double getX()      { return x; }
-    public double getY()      { return y; }
-    public double getRadius() { return radius; }
+    public double getX(){
+        return x;
+    }
+    public double getY(){
+        return y;
+    }
+    public double getRadius(){
+        return radius;
+    }
 
     public void setSpeed(double speed) {
         this.speed = speed;

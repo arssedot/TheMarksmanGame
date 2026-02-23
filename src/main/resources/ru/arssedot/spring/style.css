@@ -1,0 +1,94 @@
+.root-pane {
+    -fx-background-color: #0a0e1a;
+}
+
+.canvas-wrapper {
+    -fx-background-color: #131a2b;
+}
+
+.score-panel {
+    -fx-background-color: #111827;
+    -fx-border-color: #1e3050;
+    -fx-border-width: 0 0 0 2;
+}
+
+.panel-title {
+    -fx-text-fill: #f39c12;
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.stat-caption {
+    -fx-text-fill: #bdc3c7;
+    -fx-font-size: 14px;
+}
+
+.stat-score {
+    -fx-text-fill: #2ecc71;
+    -fx-font-size: 34px;
+    -fx-font-weight: bold;
+}
+
+.stat-shots {
+    -fx-text-fill: #e74c3c;
+    -fx-font-size: 34px;
+    -fx-font-weight: bold;
+}
+
+.info-near {
+    -fx-text-fill: #e74c3c;
+    -fx-font-size: 11px;
+}
+
+.info-far {
+    -fx-text-fill: #e67e22;
+    -fx-font-size: 11px;
+}
+
+.slider-caption {
+    -fx-text-fill: #bdc3c7;
+    -fx-font-size: 11px;
+}
+
+.slider-val {
+    -fx-text-fill: #3498db;
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+}
+
+.hint {
+    -fx-text-fill: #7f8c8d;
+    -fx-font-size: 10px;
+}
+
+.score-panel .separator .line {
+    -fx-border-color: #34495e;
+    -fx-border-width: 1 0 0 0;
+}
+
+.button-bar {
+    -fx-background-color: #111827;
+    -fx-border-color: #1e3050;
+    -fx-border-width: 2 0 0 0;
+}
+
+.btn-start, .btn-stop, .btn-pause, .btn-shoot {
+    -fx-text-fill: white;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 8 20;
+    -fx-cursor: hand;
+    -fx-background-radius: 6;
+}
+
+.btn-start        { -fx-background-color: #27ae60; }
+.btn-start:hover  { -fx-background-color: #2ecc71; }
+
+.btn-stop         { -fx-background-color: #c0392b; }
+.btn-stop:hover   { -fx-background-color: #e74c3c; }
+
+.btn-pause        { -fx-background-color: #2980b9; }
+.btn-pause:hover  { -fx-background-color: #3498db; }
+
+.btn-shoot        { -fx-background-color: #d35400; }
+.btn-shoot:hover  { -fx-background-color: #e67e22; }

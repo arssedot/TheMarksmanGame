@@ -1,9 +1,5 @@
 package ru.arssedot.spring.model;
 
-/**
- * Стрела, выпущенная игроком. Летит слева направо по прямой.
- * Анимация движения реализована на основе класса {@link Thread}.
- */
 public class Arrow {
 
     private volatile double x;
@@ -42,11 +38,23 @@ public class Arrow {
         active = false;
     }
 
-    public void deactivate() { active = false; }
-    public void pause()      { paused = true; }
-    public void resume()     { paused = false; }
+    public void deactivate(){
+        active = false;
+    }
+    public void pause(){
+        paused = true;
+    }
+    public void resume(){
+        paused = false;
+    }
 
-    public double  getX()      { return x; }
-    public double  getY()      { return y; }
-    public boolean isActive()  { return active; }
+    public double  getX(){
+        return x;
+    }
+    public double  getY(){
+        return y;
+    }
+    public boolean isActive(){
+        return active;
+    }
 }

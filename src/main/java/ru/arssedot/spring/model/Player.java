@@ -1,8 +1,5 @@
 package ru.arssedot.spring.model;
 
-/**
- * Игрок (стрелок). Хранит позицию, обрабатывает вертикальное движение.
- */
 public class Player {
 
     public static final double PLAYER_X = 50;
