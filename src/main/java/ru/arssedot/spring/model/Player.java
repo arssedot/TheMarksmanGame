@@ -2,39 +2,94 @@ package ru.arssedot.spring.model;
 
 public class Player {
 
-    public static final double PLAYER_X = 50;
-    private static final double SPEED = 4.0;
+    private String name;
+    private double y;
+    private int score;
+    private int shots;
+    private int colorIndex;
+    private boolean ready;
+    private final Arrow arrow = new Arrow();
 
-    private volatile double y;
-    private volatile boolean moveUp;
-    private volatile boolean moveDown;
-    private final double minY;
-    private final double maxY;
+    private volatile boolean movingUp;
+    private volatile boolean movingDown;
 
-    public Player(double fieldHeight) {
-        this.y = fieldHeight / 2.0;
-        this.minY = 20;
-        this.maxY = fieldHeight - 20;
+    public void move(double minY, double maxY, double speed) {
+        if (movingUp && y > minY) {
+            y -= speed;
+        }
+        if (movingDown && y < maxY) {
+            y += speed;
+        }
     }
 
-    public void update() {
-        if (moveUp && y > minY) y -= SPEED;
-        if (moveDown && y < maxY) y += SPEED;
+    public boolean shoot(double startX) {
+        if (arrow.isActive()) {
+            return false;
+        }
+        arrow.activate(startX, y);
+        shots++;
+        return true;
     }
 
-    public void reset(double fieldHeight) {
-        this.y = fieldHeight / 2.0;
+    public void addScore(int points) {
+        score += points;
+    }
+
+    public void reset(double centerY) {
+        score = 0;
+        shots = 0;
+        arrow.deactivate();
+        y = centerY;
+    }
+
+    public String  getName(){
+        return name;
+    }
+    public void setName(String n) {
+        this.name = n;
     }
 
     public double getY() {
         return y;
     }
 
-    public void setMoveUp(boolean v) {
-        moveUp = v;
+    public void setY(double y) {
+        this.y = y;
     }
 
-    public void setMoveDown(boolean v) {
-        moveDown = v;
+    public int getScore() {
+        return score;
+    }
+
+    public int getShots() {
+        return shots;
+    }
+
+    public int getColorIndex() {
+        return colorIndex;
+    }
+
+    public void setColorIndex(int i) {
+        this.colorIndex = i;
+    }
+
+    public boolean isReady() {
+        return ready;
+    }
+
+    public void setReady(boolean r) {
+        this.ready = r;
+    }
+
+    public Arrow getArrow() {
+        return arrow;
+    }
+
+    public void setMovingUp(boolean v) {
+        this.movingUp = v;
+    }
+
+    public void setMovingDown(boolean v) {
+        this.movingDown = v;
     }
 }

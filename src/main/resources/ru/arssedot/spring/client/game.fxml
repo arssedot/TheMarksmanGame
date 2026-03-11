@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.canvas.Canvas?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.Slider?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<BorderPane xmlns:fx="http://javafx.com/fxml"
+             fx:controller="ru.arssedot.spring.client.GameClient">
+
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="8" styleClass="top-bar">
+            <padding><Insets top="8" right="8" bottom="8" left="8"/></padding>
+            <Label text="Сервер:"/>
+            <TextField fx:id="hostField" text="localhost" prefWidth="120"/>
+            <Label text="Имя:"/>
+            <TextField fx:id="nameField" promptText="Имя" prefWidth="100"/>
+            <Button fx:id="connectBtn" text="Подключиться" onAction="#onConnect"/>
+            <Label fx:id="statusLabel" text="Отключён" styleClass="status-label"/>
+        </HBox>
+    </top>
+
+    <center>
+        <Canvas fx:id="canvas" width="600" height="400"/>
+    </center>
+
+    <right>
+        <VBox spacing="8" prefWidth="170" styleClass="info-panel">
+            <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+            <VBox fx:id="infoPanel" spacing="4"/>
+            <Label text="Скорость мишеней:"/>
+            <Slider fx:id="speedSlider" min="1" max="5" value="2"
+                    blockIncrement="1" majorTickUnit="1" minorTickCount="0"
+                    showTickLabels="true" showTickMarks="true" snapToTicks="true"
+                    disable="true"/>
+        </VBox>
+    </right>
+
+    <bottom>
+        <HBox alignment="CENTER" spacing="12" styleClass="bottom-bar">
+            <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+            <Button fx:id="readyBtn" text="Готов" onAction="#onReady" disable="true"/>
+            <Button fx:id="pauseBtn" text="Пауза" onAction="#onPause" disable="true"/>
+            <Button fx:id="shootBtn" text="Выстрел" onAction="#onShoot" disable="true"/>
+        </HBox>
+    </bottom>
+
+</BorderPane>

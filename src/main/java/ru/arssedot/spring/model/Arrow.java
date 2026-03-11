@@ -2,56 +2,29 @@ package ru.arssedot.spring.model;
 
 public class Arrow {
 
-    private volatile double x;
-    private final double y;
-    private final double speed;
-    private final double maxX;
-    private volatile boolean active = true;
-    private volatile boolean paused;
-    private Thread thread;
+    private double x;
+    private double y;
+    private boolean active;
 
-    public Arrow(double startX, double startY, double speed, double maxX) {
+    public void activate(double startX, double startY) {
         this.x = startX;
         this.y = startY;
-        this.speed = speed;
-        this.maxX = maxX;
+        this.active = true;
     }
 
-    public void start() {
-        thread = new Thread(this::run, "Arrow");
-        thread.setDaemon(true);
-        thread.start();
+    public void move(double speed) {
+        if (active) x += speed;
     }
 
-    private void run() {
-        while (active && x < maxX) {
-            if (!paused) {
-                x += speed;
-            }
-            try {
-                Thread.sleep(16);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
+    public void deactivate() {
         active = false;
+        x = -1;
     }
 
-    public void deactivate(){
-        active = false;
-    }
-    public void pause(){
-        paused = true;
-    }
-    public void resume(){
-        paused = false;
-    }
-
-    public double  getX(){
+    public double getX(){
         return x;
     }
-    public double  getY(){
+    public double getY(){
         return y;
     }
     public boolean isActive(){
