@@ -309,16 +309,18 @@ public class GameClient extends Application {
             case W, UP -> send("UP_ON");
             case S, DOWN -> send("DOWN_ON");
             case SPACE -> send("SHOOT");
-            default -> { }
+            default -> { return; }
         }
+        e.consume();
     }
 
     private void onKeyReleased(KeyEvent e) {
         switch (e.getCode()) {
             case W, UP -> send("UP_OFF");
             case S, DOWN -> send("DOWN_OFF");
-            default -> {}
+            default -> { return; }
         }
+        e.consume();
     }
 
     private void setGameButtonsDisabled(boolean disabled) {
