@@ -28,6 +28,7 @@ public class GameServer {
     final List<ClientHandler> clients = new CopyOnWriteArrayList<>();
     volatile boolean gameRunning;
     volatile boolean gamePaused;
+    private ClientHandler pausedBy;
     private volatile double targetSpeed = 2;
 
     private final Target nearTarget = new Target(380, 35, 2, FIELD_H);
@@ -41,7 +42,6 @@ public class GameServer {
 
     public void start() {
         Thread loop = new Thread(this::gameLoop, "GameLoop");
-        loop.setDaemon(true);
         loop.start();
 
         try (ServerSocket ss = new ServerSocket(PORT)) {
@@ -81,13 +81,24 @@ public class GameServer {
         clients.remove(ch);
         broadcast("MSG " + ch.player.getName() + " отключился");
         LOG.info(ch.player.getName() + " отключился (" + clients.size() + "/" + MAX_PLAYERS + ")");
+        if (gamePaused && ch == pausedBy) {
+            gamePaused = false;
+            pausedBy = null;
+            broadcast("MSG Пауза снята (игрок отключился)");
+            LOG.info("Пауза снята (поставивший паузу отключился)");
+            notifyAll();
+        }
         if (gameRunning && clients.isEmpty()) {
             gameRunning = false;
+            gamePaused = false;
+            pausedBy = null;
             LOG.info("Все игроки вышли — игра остановлена");
+            notifyAll();
         }
     }
 
     synchronized void handleReady(ClientHandler ch) {
+        if (gameRunning) return;
         ch.player.setReady(true);
         broadcast("MSG " + ch.player.getName() + " готов");
         LOG.info(ch.player.getName() + " готов");
@@ -95,19 +106,24 @@ public class GameServer {
     }
 
     synchronized void handlePause(ClientHandler ch) {
-        if (!gameRunning || gamePaused) {
-            return;
+        if (!gameRunning) return;
+        if (!gamePaused) {
+            gamePaused = true;
+            pausedBy = ch;
+            broadcast("MSG " + ch.player.getName() + " поставил паузу");
+            LOG.info(ch.player.getName() + " поставил паузу");
+            broadcastState();
+        } else if (ch == pausedBy) {
+            gamePaused = false;
+            pausedBy = null;
+            broadcast("MSG " + ch.player.getName() + " снял паузу");
+            LOG.info(ch.player.getName() + " снял паузу");
+            notifyAll();
         }
-        gamePaused = true;
-        for (ClientHandler c : clients) c.player.setReady(false);
-        broadcast("MSG " + ch.player.getName() + " поставил паузу");
-        LOG.info(ch.player.getName() + " поставил паузу");
     }
 
     synchronized void handleShoot(ClientHandler ch) {
-        if (!gameRunning || gamePaused) {
-            return;
-        }
+        if (!gameRunning || gamePaused) return;
         if (ch.player.shoot(ARROW_START_X)) {
             LOG.info(ch.player.getName() + " выстрелил (выстрел #" + ch.player.getShots() + ")");
         }
@@ -122,21 +138,11 @@ public class GameServer {
     }
 
     private synchronized void checkAllReady() {
-        if (clients.isEmpty()) {
-            return;
-        }
+        if (clients.isEmpty() || gameRunning) return;
         for (ClientHandler c : clients) {
-            if (!c.player.isReady()) {
-                return;
-            }
+            if (!c.player.isReady()) return;
         }
-        if (gamePaused) {
-            gamePaused = false;
-            broadcast("MSG Игра продолжается!");
-            LOG.info("Пауза снята");
-        } else if (!gameRunning) {
-            startGame();
-        }
+        startGame();
     }
 
     private void startGame() {
@@ -145,15 +151,29 @@ public class GameServer {
         farTarget.resetY(FIELD_H);
         gameRunning = true;
         gamePaused = false;
+        pausedBy = null;
         broadcast("MSG Игра началась!");
         LOG.info("Игра запущена (" + clients.size() + " игроков)");
+        notifyAll();
     }
 
     @SuppressWarnings("BusyWait")
     private void gameLoop() {
         while (!Thread.currentThread().isInterrupted()) {
             synchronized (this) {
-                if (gameRunning && !gamePaused) {
+                if (gamePaused) {
+                    LOG.info("Игровой цикл приостановлен (wait)");
+                    while (gamePaused) {
+                        try {
+                            wait();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    }
+                    LOG.info("Игровой цикл возобновлён (notifyAll)");
+                }
+                if (gameRunning) {
                     nearTarget.move();
                     farTarget.move();
                     for (ClientHandler c : clients) {
@@ -183,7 +203,7 @@ public class GameServer {
             if (nearTarget.hitTest(a.getX(), a.getY())) {
                 c.player.addScore(1);
                 a.deactivate();
-                broadcast("MSG " + c.player.getName() + " → ближняя мишень (+1)");
+                broadcast("MSG " + c.player.getName() + " -> ближняя мишень (+1)");
                 LOG.info(c.player.getName() + " попал в ближнюю мишень (+1, счёт: " + c.player.getScore() + ")");
                 checkWin(c.player);
             } else if (farTarget.hitTest(a.getX(), a.getY())) {
@@ -197,13 +217,14 @@ public class GameServer {
     }
 
     private void checkWin(Player winner) {
-        if (winner.getScore() < WIN_SCORE) {
-            return;
-        }
+        if (winner.getScore() < WIN_SCORE) return;
         broadcast("WIN " + winner.getName());
         gameRunning = false;
+        gamePaused = false;
+        pausedBy = null;
         for (ClientHandler c : clients) c.player.setReady(false);
         LOG.info("ПОБЕДИТЕЛЬ: " + winner.getName() + " (счёт: " + winner.getScore() + ")");
+        notifyAll();
     }
 
     void broadcast(String msg) {

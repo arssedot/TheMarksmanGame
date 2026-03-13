@@ -24,7 +24,6 @@ public class ClientHandler extends Thread {
         super("Client-" + socket.getRemoteSocketAddress());
         this.socket = socket;
         this.server = server;
-        setDaemon(true);
     }
 
     @Override

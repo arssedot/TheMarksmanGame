@@ -50,6 +50,7 @@ public class GameClient extends Application {
     private GameRenderer renderer;
     private Socket socket;
     private PrintWriter out;
+    private Thread readerThread;
     private volatile boolean connected;
     private boolean updatingSpeedFromServer;
 
@@ -78,7 +79,10 @@ public class GameClient extends Application {
         stage.setTitle("Меткий стрелок — Клиент");
         stage.setScene(scene);
         stage.setResizable(false);
-        stage.setOnCloseRequest(e -> { controller.disconnect(); Platform.exit(); });
+        stage.setOnCloseRequest(e -> {
+            controller.disconnect();
+            Platform.exit();
+        });
         stage.show();
     }
 
@@ -132,9 +136,8 @@ public class GameClient extends Application {
             hostField.setDisable(true);
             nameField.setDisable(true);
 
-            Thread reader = new Thread(this::listenServer, "ServerReader");
-            reader.setDaemon(true);
-            reader.start();
+            readerThread = new Thread(this::listenServer, "ServerReader");
+            readerThread.start();
         } catch (IOException e) {
             LOG.warning("Ошибка подключения: " + e.getMessage());
             statusLabel.setText("Ошибка: " + e.getMessage());
@@ -143,11 +146,20 @@ public class GameClient extends Application {
 
     private void disconnect() {
         connected = false;
-        try { if (socket != null) socket.close(); } catch (IOException ignored) {}
+        try {
+            if (socket != null) socket.close();
+        } catch (IOException ignored) {}
+        if (readerThread != null) {
+            try {
+                readerThread.join(2000);
+            } catch (InterruptedException ignored) {}
+        }
     }
 
     private void send(String cmd) {
-        if (out != null) out.println(cmd);
+        if (out != null) {
+            out.println(cmd);
+        }
     }
 
     private void listenServer() {
@@ -168,7 +180,11 @@ public class GameClient extends Application {
     private void processMessage(String msg) {
         if (msg.startsWith("STATE ")) {
             parseState(msg);
-            Platform.runLater(() -> { render(); updateInfoPanel(); updateSpeedSlider(); });
+            Platform.runLater(() -> {
+                render();
+                updateInfoPanel();
+                updateSpeedSlider();
+            });
         } else if (msg.startsWith("MSG ")) {
             String text = msg.substring(4);
             LOG.info(text);
@@ -207,7 +223,9 @@ public class GameClient extends Application {
             nearY = Double.parseDouble(parts[3]);
             farY  = Double.parseDouble(parts[4]);
             currentTargetSpeed = Double.parseDouble(parts[5]);
-            if (gameRunning) winnerName = null;
+            if (gameRunning) {
+                winnerName = null;
+            }
 
             synchronized (players) {
                 players.clear();
@@ -247,7 +265,9 @@ public class GameClient extends Application {
             for (PlayerInfo p : players) {
                 Color color = GameRenderer.PLAYER_COLORS[p.color % GameRenderer.PLAYER_COLORS.length];
                 renderer.drawPlayer(p.y, color);
-                if (p.arrowX > 0) renderer.drawArrow(p.arrowX, p.arrowY, color);
+                if (p.arrowX > 0) {
+                    renderer.drawArrow(p.arrowX, p.arrowY, color);
+                }
             }
         }
 
@@ -267,7 +287,7 @@ public class GameClient extends Application {
         synchronized (players) {
             for (PlayerInfo p : players) {
                 Color c = GameRenderer.PLAYER_COLORS[p.color % GameRenderer.PLAYER_COLORS.length];
-                Label nameLabel = new Label("Игрок: " + p.name + (p.ready ? " ✓" : ""));
+                Label nameLabel = new Label("Игрок: " + p.name + (p.ready ? " ready" : ""));
                 nameLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + toHex(c) + ";");
                 infoPanel.getChildren().addAll(
                         nameLabel,
