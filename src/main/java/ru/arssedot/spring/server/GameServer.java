@@ -7,10 +7,16 @@ import ru.arssedot.spring.model.Target;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Formatter;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.logging.StreamHandler;
 
 public class GameServer {
 
@@ -35,8 +41,7 @@ public class GameServer {
     private final Target farTarget  = new Target(520, 22, 4, FIELD_H);
 
     public static void main(String[] args) {
-        System.setProperty("java.util.logging.SimpleFormatter.format",
-                "[%1$tH:%1$tM:%1$tS] %4$s: %5$s%n");
+        setupLogging();
         new GameServer().start();
     }
 
@@ -45,26 +50,26 @@ public class GameServer {
         loop.start();
 
         try (ServerSocket ss = new ServerSocket(PORT)) {
-            LOG.info("Сервер запущен на порту " + PORT);
+            LOG.info("сервер запущен на порту " + PORT);
             while (true) {
                 Socket socket = ss.accept();
-                LOG.info("Новое подключение: " + socket.getRemoteSocketAddress());
+                LOG.info("новое подключение: " + socket.getRemoteSocketAddress());
                 new ClientHandler(socket, this).start();
             }
         } catch (IOException e) {
-            LOG.severe("Ошибка сервера: " + e.getMessage());
+            LOG.severe("ошибка сервера: " + e.getMessage());
         }
     }
 
     synchronized boolean addClient(ClientHandler ch) {
         Player p = ch.player;
         if (clients.size() >= MAX_PLAYERS) {
-            ch.send("ERROR Сервер полон (макс. " + MAX_PLAYERS + ")");
+            ch.send("ERROR сервер полон (макс. " + MAX_PLAYERS + ")");
             return false;
         }
         for (ClientHandler c : clients) {
             if (c.player.getName().equalsIgnoreCase(p.getName())) {
-                ch.send("ERROR Имя «" + p.getName() + "» уже занято");
+                ch.send("ERROR имя «" + p.getName() + "» уже занято");
                 return false;
             }
         }
@@ -84,15 +89,15 @@ public class GameServer {
         if (gamePaused && ch == pausedBy) {
             gamePaused = false;
             pausedBy = null;
-            broadcast("MSG Пауза снята (игрок отключился)");
-            LOG.info("Пауза снята (поставивший паузу отключился)");
+            broadcast("MSG пауза снята (игрок отключился)");
+            LOG.info("пауза снята (поставивший паузу отключился)");
             notifyAll();
         }
         if (gameRunning && clients.isEmpty()) {
             gameRunning = false;
             gamePaused = false;
             pausedBy = null;
-            LOG.info("Все игроки вышли — игра остановлена");
+            LOG.info("все игроки вышли - игра остановлена");
             notifyAll();
         }
     }
@@ -134,7 +139,7 @@ public class GameServer {
         nearTarget.setSpeed(targetSpeed);
         farTarget.setSpeed(targetSpeed * 2);
         broadcast("MSG " + ch.player.getName() + " изменил скорость мишеней: " + (int) targetSpeed);
-        LOG.info("Скорость мишеней: " + fmt(targetSpeed));
+        LOG.info("скорость мишеней: " + fmt(targetSpeed));
     }
 
     private synchronized void checkAllReady() {
@@ -152,8 +157,8 @@ public class GameServer {
         gameRunning = true;
         gamePaused = false;
         pausedBy = null;
-        broadcast("MSG Игра началась!");
-        LOG.info("Игра запущена (" + clients.size() + " игроков)");
+        broadcast("MSG игра началась!");
+        LOG.info("игра запущена (" + clients.size() + " игроков)");
         notifyAll();
     }
 
@@ -162,7 +167,7 @@ public class GameServer {
         while (!Thread.currentThread().isInterrupted()) {
             synchronized (this) {
                 if (gamePaused) {
-                    LOG.info("Игровой цикл приостановлен (wait)");
+                    LOG.info("игровой цикл приостановлен");
                     while (gamePaused) {
                         try {
                             wait();
@@ -171,7 +176,7 @@ public class GameServer {
                             return;
                         }
                     }
-                    LOG.info("Игровой цикл возобновлён (notifyAll)");
+                    LOG.info("игровой цикл возобновлен");
                 }
                 if (gameRunning) {
                     nearTarget.move();
@@ -204,13 +209,13 @@ public class GameServer {
                 c.player.addScore(1);
                 a.deactivate();
                 broadcast("MSG " + c.player.getName() + " -> ближняя мишень (+1)");
-                LOG.info(c.player.getName() + " попал в ближнюю мишень (+1, счёт: " + c.player.getScore() + ")");
+                LOG.info(c.player.getName() + " попал в ближнюю мишень (+1, счет: " + c.player.getScore() + ")");
                 checkWin(c.player);
             } else if (farTarget.hitTest(a.getX(), a.getY())) {
                 c.player.addScore(2);
                 a.deactivate();
-                broadcast("MSG " + c.player.getName() + " → дальняя мишень (+2)");
-                LOG.info(c.player.getName() + " попал в дальнюю мишень (+2, счёт: " + c.player.getScore() + ")");
+                broadcast("MSG " + c.player.getName() + " -> дальняя мишень (+2)");
+                LOG.info(c.player.getName() + " попал в дальнюю мишень (+2, счет: " + c.player.getScore() + ")");
                 checkWin(c.player);
             }
         }
@@ -223,7 +228,7 @@ public class GameServer {
         gamePaused = false;
         pausedBy = null;
         for (ClientHandler c : clients) c.player.setReady(false);
-        LOG.info("ПОБЕДИТЕЛЬ: " + winner.getName() + " (счёт: " + winner.getScore() + ")");
+        LOG.info("победитель: " + winner.getName() + " (счет: " + winner.getScore() + ")");
         notifyAll();
     }
 
@@ -265,5 +270,25 @@ public class GameServer {
 
     private static String fmt(double v) {
         return String.format(Locale.US, "%.1f", v);
+    }
+
+    private static void setupLogging() {
+        Logger root = Logger.getLogger("");
+        for (Handler h : root.getHandlers()) root.removeHandler(h);
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+        StreamHandler handler = new StreamHandler(System.out, new Formatter() {
+            @Override
+            public String format(LogRecord r) {
+                String time = LocalTime.now().format(timeFmt);
+                return "[" + time + "] " + r.getLevel() + ": " + r.getMessage() + "\n";
+            }
+        }) {
+            @Override
+            public synchronized void publish(LogRecord r) {
+                super.publish(r);
+                flush();
+            }
+        };
+        root.addHandler(handler);
     }
 }

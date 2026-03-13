@@ -21,7 +21,7 @@
             <Label text="Имя:"/>
             <TextField fx:id="nameField" promptText="Имя" prefWidth="100"/>
             <Button fx:id="connectBtn" text="Подключиться" onAction="#onConnect"/>
-            <Label fx:id="statusLabel" text="Отключён" styleClass="status-label"/>
+            <Label fx:id="statusLabel" text="отключен" styleClass="status-label"/>
         </HBox>
     </top>
 
@@ -33,7 +33,7 @@
         <VBox spacing="8" prefWidth="170" styleClass="info-panel">
             <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
             <VBox fx:id="infoPanel" spacing="4"/>
-            <Label text="Скорость мишеней:"/>
+            <Label text="скорость мишеней:"/>
             <Slider fx:id="speedSlider" min="1" max="5" value="2"
                     blockIncrement="1" majorTickUnit="1" minorTickCount="0"
                     showTickLabels="true" showTickMarks="true" snapToTicks="true"

@@ -36,7 +36,7 @@ public class ClientHandler extends Thread {
                 handleCommand(line.trim());
             }
         } catch (IOException e) {
-            LOG.info("Соединение потеряно: " + player.getName());
+            LOG.info("соединение потеряно: " + player.getName());
         } finally {
             if (joined) server.removeClient(this);
             try { socket.close(); } catch (IOException ignored) {}

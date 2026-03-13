@@ -24,10 +24,16 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Formatter;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.logging.StreamHandler;
 
 public class GameClient extends Application {
 
@@ -76,7 +82,7 @@ public class GameClient extends Application {
         scene.addEventFilter(KeyEvent.KEY_PRESSED, controller::onKeyPressed);
         scene.addEventFilter(KeyEvent.KEY_RELEASED, controller::onKeyReleased);
 
-        stage.setTitle("Меткий стрелок — Клиент");
+        stage.setTitle("меткий стрелок - клиент");
         stage.setScene(scene);
         stage.setResizable(false);
         stage.setOnCloseRequest(e -> {
@@ -118,14 +124,14 @@ public class GameClient extends Application {
         String host = hostField.getText().trim();
         String name = nameField.getText().trim();
         if (host.isEmpty() || name.isEmpty()) {
-            statusLabel.setText("Заполните все поля");
+            statusLabel.setText("заполните все поля");
             return;
         }
         if (name.contains(",") || name.contains(" ")) {
-            statusLabel.setText("Имя без пробелов и запятых");
+            statusLabel.setText("имя без пробелов и запятых");
             return;
         }
-        LOG.info("Подключение к " + host + ":" + PORT + " как «" + name + "»");
+        LOG.info("подключение к " + host + ":" + PORT + " как " + name);
         try {
             socket = new Socket(host, PORT);
             out = new PrintWriter(socket.getOutputStream(), true);
@@ -139,8 +145,8 @@ public class GameClient extends Application {
             readerThread = new Thread(this::listenServer, "ServerReader");
             readerThread.start();
         } catch (IOException e) {
-            LOG.warning("Ошибка подключения: " + e.getMessage());
-            statusLabel.setText("Ошибка: " + e.getMessage());
+            LOG.warning("ошибка подключения: " + e.getMessage());
+            statusLabel.setText("ошибка: " + e.getMessage());
         }
     }
 
@@ -171,7 +177,7 @@ public class GameClient extends Application {
             }
         } catch (IOException e) {
             Platform.runLater(() -> {
-                statusLabel.setText("Соединение потеряно");
+                statusLabel.setText("соединение потеряно");
                 resetConnection();
             });
         }
@@ -191,17 +197,17 @@ public class GameClient extends Application {
             Platform.runLater(() -> statusLabel.setText(text));
         } else if (msg.startsWith("WIN ")) {
             winnerName = msg.substring(4);
-            LOG.info("Победитель: " + winnerName);
+            LOG.info("победитель: " + winnerName);
             Platform.runLater(() -> {
-                statusLabel.setText("Победитель: " + winnerName + "!");
+                statusLabel.setText("победитель: " + winnerName + "!");
                 render();
             });
         } else if ("OK".equals(msg)) {
-            LOG.info("Подключён к серверу");
-            Platform.runLater(() -> statusLabel.setText("Подключён. Нажмите «Готов»"));
+            LOG.info("подключен к серверу");
+            Platform.runLater(() -> statusLabel.setText("подключен. нажмите «готов»"));
         } else if (msg.startsWith("ERROR ")) {
             String text = msg.substring(6);
-            LOG.warning("Ошибка: " + text);
+            LOG.warning("ошибка: " + text);
             Platform.runLater(() -> { statusLabel.setText(text); resetConnection(); });
         }
     }
@@ -240,7 +246,7 @@ public class GameClient extends Application {
                 }
             }
         } catch (NumberFormatException e) {
-            LOG.warning("Ошибка разбора: " + e.getMessage());
+            LOG.warning("ошибка разбора: " + e.getMessage());
         }
     }
 
@@ -272,13 +278,13 @@ public class GameClient extends Application {
         }
 
         if (!connected) {
-            renderer.drawOverlay("Подключитесь к серверу");
+            renderer.drawOverlay("подключитесь к серверу");
         } else if (winnerName != null && !gameRunning) {
-            renderer.drawOverlay("Победитель: " + winnerName + "!");
+            renderer.drawOverlay("победитель: " + winnerName + "!");
         } else if (gamePaused) {
-            renderer.drawOverlay("ПАУЗА");
+            renderer.drawOverlay("пауза");
         } else if (!gameRunning) {
-            renderer.drawOverlay("Ожидание готовности...");
+            renderer.drawOverlay("ожидание готовности...");
         }
     }
 
@@ -287,12 +293,12 @@ public class GameClient extends Application {
         synchronized (players) {
             for (PlayerInfo p : players) {
                 Color c = GameRenderer.PLAYER_COLORS[p.color % GameRenderer.PLAYER_COLORS.length];
-                Label nameLabel = new Label("Игрок: " + p.name + (p.ready ? " ready" : ""));
+                Label nameLabel = new Label("игрок: " + p.name);
                 nameLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + toHex(c) + ";");
                 infoPanel.getChildren().addAll(
                         nameLabel,
-                        new Label("Счёт: " + p.score),
-                        new Label("Выстрелов: " + p.shots),
+                        new Label("счет: " + p.score),
+                        new Label("выстрелов: " + p.shots),
                         new Separator());
             }
         }
@@ -329,9 +335,28 @@ public class GameClient extends Application {
                 (int) (c.getBlue() * 255));
     }
 
+    private static void setupLogging() {
+        Logger root = Logger.getLogger("");
+        for (Handler h : root.getHandlers()) root.removeHandler(h);
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss");
+        StreamHandler handler = new StreamHandler(System.out, new Formatter() {
+            @Override
+            public String format(LogRecord r) {
+                String time = LocalTime.now().format(timeFmt);
+                return "[" + time + "] " + r.getLevel() + ": " + r.getMessage() + "\n";
+            }
+        }) {
+            @Override
+            public synchronized void publish(LogRecord r) {
+                super.publish(r);
+                flush();
+            }
+        };
+        root.addHandler(handler);
+    }
+
     public static void main(String[] args) {
-        System.setProperty("java.util.logging.SimpleFormatter.format",
-                "[%1$tH:%1$tM:%1$tS] %4$s: %5$s%n");
+        setupLogging();
         launch(args);
     }
 }
