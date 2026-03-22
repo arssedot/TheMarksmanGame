@@ -24,20 +24,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.logging.Formatter;
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
-import java.util.logging.StreamHandler;
 
 public class GameClient extends Application {
 
-    private static final Logger LOG = Logger.getLogger(GameClient.class.getName());
     private static final int PORT = 4242;
     private static final double NEAR_X = 380, FAR_X = 520;
     private static final double NEAR_R = 35, FAR_R = 22;
@@ -55,7 +47,7 @@ public class GameClient extends Application {
 
     private GameRenderer renderer;
     private Socket socket;
-    private PrintWriter out;
+    private PrintWriter printWriter;
     private Thread readerThread;
     private volatile boolean connected;
     private boolean updatingSpeedFromServer;
@@ -131,11 +123,10 @@ public class GameClient extends Application {
             statusLabel.setText("имя без пробелов и запятых");
             return;
         }
-        LOG.info("подключение к " + host + ":" + PORT + " как " + name);
         try {
             socket = new Socket(host, PORT);
-            out = new PrintWriter(socket.getOutputStream(), true);
-            out.println("JOIN " + name);
+            printWriter = new PrintWriter(socket.getOutputStream(), true);
+            printWriter.println("JOIN " + name);
             connected = true;
             setGameButtonsDisabled(false);
             connectBtn.setDisable(true);
@@ -144,9 +135,8 @@ public class GameClient extends Application {
 
             readerThread = new Thread(this::listenServer, "ServerReader");
             readerThread.start();
-        } catch (IOException e) {
-            LOG.warning("ошибка подключения: " + e.getMessage());
-            statusLabel.setText("ошибка: " + e.getMessage());
+        } catch (IOException exception) {
+            statusLabel.setText("ошибка: " + exception.getMessage());
         }
     }
 
@@ -163,16 +153,16 @@ public class GameClient extends Application {
     }
 
     private void send(String cmd) {
-        if (out != null) {
-            out.println(cmd);
+        if (printWriter != null) {
+            printWriter.println(cmd);
         }
     }
 
     private void listenServer() {
-        try (BufferedReader in = new BufferedReader(
+        try (BufferedReader bufferedReader = new BufferedReader(
                 new InputStreamReader(socket.getInputStream()))) {
             String line;
-            while ((line = in.readLine()) != null) {
+            while ((line = bufferedReader.readLine()) != null) {
                 processMessage(line);
             }
         } catch (IOException e) {
@@ -193,21 +183,17 @@ public class GameClient extends Application {
             });
         } else if (msg.startsWith("MSG ")) {
             String text = msg.substring(4);
-            LOG.info(text);
             Platform.runLater(() -> statusLabel.setText(text));
         } else if (msg.startsWith("WIN ")) {
             winnerName = msg.substring(4);
-            LOG.info("победитель: " + winnerName);
             Platform.runLater(() -> {
                 statusLabel.setText("победитель: " + winnerName + "!");
                 render();
             });
         } else if ("OK".equals(msg)) {
-            LOG.info("подключен к серверу");
             Platform.runLater(() -> statusLabel.setText("подключен. нажмите «готов»"));
         } else if (msg.startsWith("ERROR ")) {
             String text = msg.substring(6);
-            LOG.warning("ошибка: " + text);
             Platform.runLater(() -> { statusLabel.setText(text); resetConnection(); });
         }
     }
@@ -220,38 +206,61 @@ public class GameClient extends Application {
         setGameButtonsDisabled(true);
     }
 
+    private static final int ST_RUNNING = 1, ST_PAUSED = 2, ST_NEAR_Y = 3, ST_FAR_Y = 4,
+                             ST_SPEED = 5, ST_PLAYERS_FROM = 6;
+
+    private static final int PL_NAME = 0, PL_Y = 1, PL_SCORE = 2, PL_SHOTS = 3,
+                             PL_ARROW_X = 4, PL_ARROW_Y = 5, PL_COLOR = 6, PL_READY = 7,
+                             PL_FIELD_COUNT = 8;
+
     private void parseState(String line) {
         try {
             String[] parts = line.split(" ");
-            if (parts.length < 6) return;
-            gameRunning = Boolean.parseBoolean(parts[1]);
-            gamePaused  = Boolean.parseBoolean(parts[2]);
-            nearY = Double.parseDouble(parts[3]);
-            farY  = Double.parseDouble(parts[4]);
-            currentTargetSpeed = Double.parseDouble(parts[5]);
+            if (parts.length < ST_PLAYERS_FROM) {
+                return;
+            }
+            
+            gameRunning = Boolean.parseBoolean(parts[ST_RUNNING]);
+            gamePaused = Boolean.parseBoolean(parts[ST_PAUSED]);
+            nearY = Double.parseDouble(parts[ST_NEAR_Y]);
+            farY = Double.parseDouble(parts[ST_FAR_Y]);
+            currentTargetSpeed = Double.parseDouble(parts[ST_SPEED]);
             if (gameRunning) {
                 winnerName = null;
             }
 
             synchronized (players) {
                 players.clear();
-                for (int i = 6; i < parts.length; i++) {
-                    String[] f = parts[i].split(",");
-                    if (f.length < 8) continue;
-                    players.add(new PlayerInfo(
-                            f[0], Double.parseDouble(f[1]),
-                            Integer.parseInt(f[2]), Integer.parseInt(f[3]),
-                            Double.parseDouble(f[4]), Double.parseDouble(f[5]),
-                            Integer.parseInt(f[6]), Boolean.parseBoolean(f[7])));
+                for (int i = ST_PLAYERS_FROM; i < parts.length; i++) {
+                    String[] fields = parts[i].split(",");
+                    if (fields.length < PL_FIELD_COUNT) {
+                        continue;
+                    }
+
+                    players.add(parsePlayer(fields));
                 }
             }
-        } catch (NumberFormatException e) {
-            LOG.warning("ошибка разбора: " + e.getMessage());
+        } catch (NumberFormatException ignored) {
         }
     }
 
+    private static PlayerInfo parsePlayer(String[] fields) {
+        return new PlayerInfo(
+                fields[PL_NAME],
+                Double.parseDouble(fields[PL_Y]),
+                Integer.parseInt(fields[PL_SCORE]),
+                Integer.parseInt(fields[PL_SHOTS]),
+                Double.parseDouble(fields[PL_ARROW_X]),
+                Double.parseDouble(fields[PL_ARROW_Y]),
+                Integer.parseInt(fields[PL_COLOR]),
+                Boolean.parseBoolean(fields[PL_READY]));
+    }
+
     private void updateSpeedSlider() {
-        if (speedSlider.isPressed() || speedSlider.isValueChanging()) return;
+        if (speedSlider.isPressed() || speedSlider.isValueChanging()) {
+            return;
+        }
+
         if (Math.abs(speedSlider.getValue() - currentTargetSpeed) > 0.1) {
             updatingSpeedFromServer = true;
             speedSlider.setValue(currentTargetSpeed);
@@ -268,11 +277,11 @@ public class GameClient extends Application {
         renderer.drawTarget(FAR_X, farY, FAR_R, Color.web("#f0c800"));
 
         synchronized (players) {
-            for (PlayerInfo p : players) {
-                Color color = GameRenderer.PLAYER_COLORS[p.color % GameRenderer.PLAYER_COLORS.length];
-                renderer.drawPlayer(p.y, color);
-                if (p.arrowX > 0) {
-                    renderer.drawArrow(p.arrowX, p.arrowY, color);
+            for (PlayerInfo player : players) {
+                Color color = GameRenderer.PLAYER_COLORS[player.color % GameRenderer.PLAYER_COLORS.length];
+                renderer.drawPlayer(player.y, color);
+                if (player.arrowX > 0) {
+                    renderer.drawArrow(player.arrowX, player.arrowY, color);
                 }
             }
         }
@@ -291,36 +300,36 @@ public class GameClient extends Application {
     private void updateInfoPanel() {
         infoPanel.getChildren().clear();
         synchronized (players) {
-            for (PlayerInfo p : players) {
-                Color c = GameRenderer.PLAYER_COLORS[p.color % GameRenderer.PLAYER_COLORS.length];
-                Label nameLabel = new Label("игрок: " + p.name);
-                nameLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + toHex(c) + ";");
+            for (PlayerInfo player : players) {
+                Color playerColor = GameRenderer.PLAYER_COLORS[player.color % GameRenderer.PLAYER_COLORS.length];
+                Label nameLabel = new Label("игрок: " + player.name);
+                nameLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + toHex(playerColor) + ";");
                 infoPanel.getChildren().addAll(
                         nameLabel,
-                        new Label("счет: " + p.score),
-                        new Label("выстрелов: " + p.shots),
+                        new Label("счет: " + player.score),
+                        new Label("выстрелов: " + player.shots),
                         new Separator());
             }
         }
     }
 
-    private void onKeyPressed(KeyEvent e) {
-        switch (e.getCode()) {
+    private void onKeyPressed(KeyEvent event) {
+        switch (event.getCode()) {
             case W, UP -> send("UP_ON");
             case S, DOWN -> send("DOWN_ON");
             case SPACE -> send("SHOOT");
             default -> { return; }
         }
-        e.consume();
+        event.consume();
     }
 
-    private void onKeyReleased(KeyEvent e) {
-        switch (e.getCode()) {
+    private void onKeyReleased(KeyEvent event) {
+        switch (event.getCode()) {
             case W, UP -> send("UP_OFF");
             case S, DOWN -> send("DOWN_OFF");
             default -> { return; }
         }
-        e.consume();
+        event.consume();
     }
 
     private void setGameButtonsDisabled(boolean disabled) {
@@ -330,35 +339,14 @@ public class GameClient extends Application {
         speedSlider.setDisable(disabled);
     }
 
-    private static String toHex(Color c) {
+    private static String toHex(Color color) {
         return String.format("#%02x%02x%02x",
-                (int) (c.getRed() * 255),
-                (int) (c.getGreen() * 255),
-                (int) (c.getBlue() * 255));
-    }
-
-    private static void setupLogging() {
-        Logger root = Logger.getLogger("");
-        for (Handler h : root.getHandlers()) root.removeHandler(h);
-        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm:ss");
-        StreamHandler handler = new StreamHandler(System.out, new Formatter() {
-            @Override
-            public String format(LogRecord r) {
-                String time = LocalTime.now().format(timeFmt);
-                return "[" + time + "] " + r.getLevel() + ": " + r.getMessage() + "\n";
-            }
-        }) {
-            @Override
-            public synchronized void publish(LogRecord r) {
-                super.publish(r);
-                flush();
-            }
-        };
-        root.addHandler(handler);
+                (int) (color.getRed() * 255),
+                (int) (color.getGreen() * 255),
+                (int) (color.getBlue() * 255));
     }
 
     public static void main(String[] args) {
-        setupLogging();
         launch(args);
     }
 }

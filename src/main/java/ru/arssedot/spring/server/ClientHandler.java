@@ -7,15 +7,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.logging.Logger;
 
 public class ClientHandler extends Thread {
 
-    private static final Logger LOG = Logger.getLogger(ClientHandler.class.getName());
-
     private final Socket socket;
     private final GameServer server;
-    private PrintWriter out;
+    private PrintWriter printWriter;
     private boolean joined;
 
     final Player player = new Player();
@@ -28,18 +25,20 @@ public class ClientHandler extends Thread {
 
     @Override
     public void run() {
-        try (BufferedReader in = new BufferedReader(
-                new InputStreamReader(socket.getInputStream()))) {
-            out = new PrintWriter(socket.getOutputStream(), true);
+        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+            printWriter = new PrintWriter(socket.getOutputStream(), true);
             String line;
-            while ((line = in.readLine()) != null) {
+            while ((line = bufferedReader.readLine()) != null) {
                 handleCommand(line.trim());
             }
-        } catch (IOException e) {
-            LOG.info("соединение потеряно: " + player.getName());
+        } catch (IOException ignored) {
         } finally {
-            if (joined) server.removeClient(this);
-            try { socket.close(); } catch (IOException ignored) {}
+            if (joined) {
+                server.removeClient(this);
+            }
+            try { 
+                socket.close(); 
+            } catch (IOException ignored) {}
         }
     }
 
@@ -70,6 +69,8 @@ public class ClientHandler extends Thread {
     }
 
     synchronized void send(String msg) {
-        if (out != null) out.println(msg);
+        if (printWriter != null) {
+            printWriter.println(msg);
+        }
     }
 }

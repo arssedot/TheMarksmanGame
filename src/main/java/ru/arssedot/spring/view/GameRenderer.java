@@ -3,9 +3,6 @@ package ru.arssedot.spring.view;
 import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-import javafx.scene.paint.CycleMethod;
-import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.Stop;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
@@ -19,6 +16,8 @@ public class GameRenderer {
             Color.web("#5cd85c"), Color.web("#ffa940")
     };
 
+    private static final Color FIELD_BACKGROUND = Color.web("#0a1a2e");
+
     private final GraphicsContext gc;
 
     public GameRenderer(GraphicsContext gc) {
@@ -26,9 +25,7 @@ public class GameRenderer {
     }
 
     public void clear() {
-        gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.web("#0a1a2e")),
-                new Stop(1, Color.web("#0d2d2d"))));
+        gc.setFill(FIELD_BACKGROUND);
         gc.fillRect(0, 0, W, H);
     }
 
@@ -49,9 +46,7 @@ public class GameRenderer {
     }
 
     public void drawYellowBar() {
-        gc.setFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.web("#c4a000")),
-                new Stop(1, Color.web("#e8c800"))));
+        gc.setFill(Color.web("#d4b41a"));
         gc.fillRect(54, 0, 32, H);
         gc.setStroke(Color.web("#a08000"));
         gc.setLineWidth(1);
