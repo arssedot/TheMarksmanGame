@@ -35,6 +35,9 @@ public class GameClient extends Application {
     private static final double NEAR_R = 35, FAR_R = 22;
     private static final double PLAYER_START_Y = GameRenderer.H / 2;
 
+    private static final Color NEAR_TARGET_COLOR = Color.rgb(211, 47,  47);
+    private static final Color FAR_TARGET_COLOR  = Color.rgb(240, 200, 0);
+
     @FXML private Canvas canvas;
     @FXML private VBox infoPanel;
     @FXML private Label statusLabel;
@@ -274,8 +277,8 @@ public class GameClient extends Application {
         renderer.drawGrid();
         renderer.drawGuideLines(NEAR_X, FAR_X);
         renderer.drawYellowBar();
-        renderer.drawTarget(NEAR_X, nearY, NEAR_R, Color.web("#d32f2f"));
-        renderer.drawTarget(FAR_X, farY, FAR_R, Color.web("#f0c800"));
+        renderer.drawTarget(NEAR_X, nearY, NEAR_R, NEAR_TARGET_COLOR);
+        renderer.drawTarget(FAR_X, farY, FAR_R, FAR_TARGET_COLOR);
 
         synchronized (players) {
             if (players.isEmpty()) {

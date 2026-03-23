@@ -12,11 +12,15 @@ public class GameRenderer {
     public static final double W = 600;
     public static final double H = 400;
     public static final Color[] PLAYER_COLORS = {
-            Color.web("#ff6b6b"), Color.web("#54a0ff"),
-            Color.web("#5cd85c"), Color.web("#ffa940")
+            Color.rgb(255, 107, 107),   
+            Color.rgb(84,  160, 255),   
+            Color.rgb(92,  216, 92),    
+            Color.rgb(255, 169, 64)     
     };
 
-    private static final Color FIELD_BACKGROUND = Color.web("#0a1a2e");
+    private static final Color FIELD_BACKGROUND  = Color.rgb(10,  26,  46);
+    private static final Color YELLOW_BAR_FILL   = Color.rgb(212, 180, 26);
+    private static final Color YELLOW_BAR_STROKE = Color.rgb(160, 128, 0);
 
     private final GraphicsContext gc;
 
@@ -46,9 +50,9 @@ public class GameRenderer {
     }
 
     public void drawYellowBar() {
-        gc.setFill(Color.web("#d4b41a"));
+        gc.setFill(YELLOW_BAR_FILL);
         gc.fillRect(54, 0, 32, H);
-        gc.setStroke(Color.web("#a08000"));
+        gc.setStroke(YELLOW_BAR_STROKE);
         gc.setLineWidth(1);
         gc.strokeRect(54, 0, 32, H);
     }
