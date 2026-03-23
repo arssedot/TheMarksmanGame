@@ -33,6 +33,7 @@ public class GameClient extends Application {
     private static final int PORT = 4242;
     private static final double NEAR_X = 380, FAR_X = 520;
     private static final double NEAR_R = 35, FAR_R = 22;
+    private static final double PLAYER_START_Y = GameRenderer.H / 2;
 
     @FXML private Canvas canvas;
     @FXML private VBox infoPanel;
@@ -277,11 +278,15 @@ public class GameClient extends Application {
         renderer.drawTarget(FAR_X, farY, FAR_R, Color.web("#f0c800"));
 
         synchronized (players) {
-            for (PlayerInfo player : players) {
-                Color color = GameRenderer.PLAYER_COLORS[player.color % GameRenderer.PLAYER_COLORS.length];
-                renderer.drawPlayer(player.y, color);
-                if (player.arrowX > 0) {
-                    renderer.drawArrow(player.arrowX, player.arrowY, color);
+            if (players.isEmpty()) {
+                renderer.drawPlayer(PLAYER_START_Y, GameRenderer.PLAYER_COLORS[0]);
+            } else {
+                for (PlayerInfo player : players) {
+                    Color color = GameRenderer.PLAYER_COLORS[player.color % GameRenderer.PLAYER_COLORS.length];
+                    renderer.drawPlayer(player.y, color);
+                    if (player.arrowX > 0) {
+                        renderer.drawArrow(player.arrowX, player.arrowY, color);
+                    }
                 }
             }
         }

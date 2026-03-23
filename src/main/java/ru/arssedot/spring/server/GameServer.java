@@ -51,12 +51,12 @@ public class GameServer {
     synchronized boolean addClient(ClientHandler clientHandler) {
         Player player = clientHandler.player;
         if (clients.size() >= MAX_PLAYERS) {
-            clientHandler.send("сервер полон (макс. " + MAX_PLAYERS + ")");
+            clientHandler.send("ERROR сервер полон (макс. " + MAX_PLAYERS + ")");
             return false;
         }
         for (ClientHandler other : clients) {
             if (other.player.getName().equalsIgnoreCase(player.getName())) {
-                clientHandler.send("имя «" + player.getName() + "» уже занято");
+                clientHandler.send("ERROR имя «" + player.getName() + "» уже занято");
                 return false;
             }
         }
