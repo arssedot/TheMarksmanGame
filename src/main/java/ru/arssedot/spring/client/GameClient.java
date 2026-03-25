@@ -17,16 +17,18 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
+import ru.arssedot.spring.protocol.ClientCommand;
+import ru.arssedot.spring.protocol.GameSnapshot;
+import ru.arssedot.spring.protocol.PlayerState;
+import ru.arssedot.spring.protocol.ServerMessage;
 import ru.arssedot.spring.view.GameRenderer;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 public class GameClient extends Application {
 
@@ -51,7 +53,7 @@ public class GameClient extends Application {
 
     private GameRenderer renderer;
     private Socket socket;
-    private PrintWriter printWriter;
+    private ObjectOutputStream objectWriter;
     private Thread readerThread;
     private volatile boolean connected;
     private boolean updatingSpeedFromServer;
@@ -94,26 +96,22 @@ public class GameClient extends Application {
 
         speedSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             if (!updatingSpeedFromServer && !speedSlider.isValueChanging()) {
-                sendSpeed(newVal.doubleValue());
+                sendCommand(ClientCommand.speed(newVal.doubleValue()));
             }
         });
         speedSlider.valueChangingProperty().addListener((obs, wasChanging, isChanging) -> {
             if (!isChanging && !updatingSpeedFromServer) {
-                sendSpeed(speedSlider.getValue());
+                sendCommand(ClientCommand.speed(speedSlider.getValue()));
             }
         });
 
         render();
     }
 
-    private void sendSpeed(double value) {
-        send("SPEED " + String.format(Locale.US, "%.1f", value));
-    }
-
     @FXML private void onConnect() { connect(); }
-    @FXML private void onReady()   { send("READY"); }
-    @FXML private void onPause()   { send("PAUSE"); }
-    @FXML private void onShoot()   { send("SHOOT"); }
+    @FXML private void onReady()   { sendCommand(ClientCommand.ready()); }
+    @FXML private void onPause()   { sendCommand(ClientCommand.pause()); }
+    @FXML private void onShoot()   { sendCommand(ClientCommand.shoot()); }
 
     private void connect() {
         if (connected) return;
@@ -129,8 +127,9 @@ public class GameClient extends Application {
         }
         try {
             socket = new Socket(host, PORT);
-            printWriter = new PrintWriter(socket.getOutputStream(), true);
-            printWriter.println("JOIN " + name);
+            objectWriter = new ObjectOutputStream(socket.getOutputStream());
+            objectWriter.flush();
+            sendCommand(ClientCommand.join(name));
             connected = true;
             setGameButtonsDisabled(false);
             connectBtn.setDisable(true);
@@ -147,6 +146,7 @@ public class GameClient extends Application {
     private void disconnect() {
         connected = false;
         try {
+            if (objectWriter != null) objectWriter.close();
             if (socket != null) socket.close();
         } catch (IOException ignored) {}
         if (readerThread != null) {
@@ -156,20 +156,24 @@ public class GameClient extends Application {
         }
     }
 
-    private void send(String cmd) {
-        if (printWriter != null) {
-            printWriter.println(cmd);
+    private void sendCommand(ClientCommand command) {
+        if (objectWriter != null) {
+            try {
+                objectWriter.writeObject(command);
+                objectWriter.reset();
+            } catch (IOException ignored) {}
         }
     }
 
     private void listenServer() {
-        try (BufferedReader bufferedReader = new BufferedReader(
-                new InputStreamReader(socket.getInputStream()))) {
-            String line;
-            while ((line = bufferedReader.readLine()) != null) {
-                processMessage(line);
+        try (ObjectInputStream objectReader = new ObjectInputStream(socket.getInputStream())) {
+            Object obj;
+            while ((obj = objectReader.readObject()) != null) {
+                if (obj instanceof ServerMessage message) {
+                    processServerMessage(message);
+                }
             }
-        } catch (IOException e) {
+        } catch (IOException | ClassNotFoundException e) {
             Platform.runLater(() -> {
                 statusLabel.setText("соединение потеряно");
                 resetConnection();
@@ -177,28 +181,48 @@ public class GameClient extends Application {
         }
     }
 
-    private void processMessage(String msg) {
-        if (msg.startsWith("STATE ")) {
-            parseState(msg);
-            Platform.runLater(() -> {
-                render();
-                updateInfoPanel();
-                updateSpeedSlider();
-            });
-        } else if (msg.startsWith("MSG ")) {
-            String text = msg.substring(4);
-            Platform.runLater(() -> statusLabel.setText(text));
-        } else if (msg.startsWith("WIN ")) {
-            winnerName = msg.substring(4);
-            Platform.runLater(() -> {
-                statusLabel.setText("победитель: " + winnerName + "!");
-                render();
-            });
-        } else if ("OK".equals(msg)) {
-            Platform.runLater(() -> statusLabel.setText("подключен. нажмите «готов»"));
-        } else if (msg.startsWith("ERROR ")) {
-            String text = msg.substring(6);
-            Platform.runLater(() -> { statusLabel.setText(text); resetConnection(); });
+    private void processServerMessage(ServerMessage message) {
+        switch (message.type) {
+            case SNAPSHOT -> {
+                applySnapshot(message.snapshot);
+                Platform.runLater(() -> {
+                    render();
+                    updateInfoPanel();
+                    updateSpeedSlider();
+                });
+            }
+            case TEXT -> Platform.runLater(() -> statusLabel.setText(message.text));
+            case WIN -> {
+                winnerName = message.text;
+                Platform.runLater(() -> {
+                    statusLabel.setText("победитель: " + winnerName + "!");
+                    render();
+                });
+            }
+            case OK -> Platform.runLater(() -> statusLabel.setText("подключен. нажмите «готов»"));
+            case ERROR -> {
+                String errorText = message.text;
+                Platform.runLater(() -> { statusLabel.setText(errorText); resetConnection(); });
+            }
+        }
+    }
+
+    private void applySnapshot(GameSnapshot snapshot) {
+        gameRunning = snapshot.gameRunning();
+        gamePaused = snapshot.gamePaused();
+        nearY = snapshot.nearTargetY();
+        farY = snapshot.farTargetY();
+        currentTargetSpeed = snapshot.targetSpeed();
+        if (gameRunning) {
+            winnerName = null;
+        }
+        synchronized (players) {
+            players.clear();
+            for (PlayerState ps : snapshot.players()) {
+                players.add(new PlayerInfo(
+                        ps.name(), ps.y(), ps.score(), ps.shots(),
+                        ps.arrowX(), ps.arrowY(), ps.colorIndex(), ps.ready()));
+            }
         }
     }
 
@@ -208,56 +232,6 @@ public class GameClient extends Application {
         hostField.setDisable(false);
         nameField.setDisable(false);
         setGameButtonsDisabled(true);
-    }
-
-    private static final int ST_RUNNING = 1, ST_PAUSED = 2, ST_NEAR_Y = 3, ST_FAR_Y = 4,
-                             ST_SPEED = 5, ST_PLAYERS_FROM = 6;
-
-    private static final int PL_NAME = 0, PL_Y = 1, PL_SCORE = 2, PL_SHOTS = 3,
-                             PL_ARROW_X = 4, PL_ARROW_Y = 5, PL_COLOR = 6, PL_READY = 7,
-                             PL_FIELD_COUNT = 8;
-
-    private void parseState(String line) {
-        try {
-            String[] parts = line.split(" ");
-            if (parts.length < ST_PLAYERS_FROM) {
-                return;
-            }
-            
-            gameRunning = Boolean.parseBoolean(parts[ST_RUNNING]);
-            gamePaused = Boolean.parseBoolean(parts[ST_PAUSED]);
-            nearY = Double.parseDouble(parts[ST_NEAR_Y]);
-            farY = Double.parseDouble(parts[ST_FAR_Y]);
-            currentTargetSpeed = Double.parseDouble(parts[ST_SPEED]);
-            if (gameRunning) {
-                winnerName = null;
-            }
-
-            synchronized (players) {
-                players.clear();
-                for (int i = ST_PLAYERS_FROM; i < parts.length; i++) {
-                    String[] fields = parts[i].split(",");
-                    if (fields.length < PL_FIELD_COUNT) {
-                        continue;
-                    }
-
-                    players.add(parsePlayer(fields));
-                }
-            }
-        } catch (NumberFormatException ignored) {
-        }
-    }
-
-    private static PlayerInfo parsePlayer(String[] fields) {
-        return new PlayerInfo(
-                fields[PL_NAME],
-                Double.parseDouble(fields[PL_Y]),
-                Integer.parseInt(fields[PL_SCORE]),
-                Integer.parseInt(fields[PL_SHOTS]),
-                Double.parseDouble(fields[PL_ARROW_X]),
-                Double.parseDouble(fields[PL_ARROW_Y]),
-                Integer.parseInt(fields[PL_COLOR]),
-                Boolean.parseBoolean(fields[PL_READY]));
     }
 
     private void updateSpeedSlider() {
@@ -285,10 +259,10 @@ public class GameClient extends Application {
                 renderer.drawPlayer(PLAYER_START_Y, GameRenderer.PLAYER_COLORS[0]);
             } else {
                 for (PlayerInfo player : players) {
-                    Color color = GameRenderer.PLAYER_COLORS[player.color % GameRenderer.PLAYER_COLORS.length];
-                    renderer.drawPlayer(player.y, color);
-                    if (player.arrowX > 0) {
-                        renderer.drawArrow(player.arrowX, player.arrowY, color);
+                    Color color = GameRenderer.PLAYER_COLORS[player.color() % GameRenderer.PLAYER_COLORS.length];
+                    renderer.drawPlayer(player.y(), color);
+                    if (player.arrowX() > 0) {
+                        renderer.drawArrow(player.arrowX(), player.arrowY(), color);
                     }
                 }
             }
@@ -309,13 +283,13 @@ public class GameClient extends Application {
         infoPanel.getChildren().clear();
         synchronized (players) {
             for (PlayerInfo player : players) {
-                Color playerColor = GameRenderer.PLAYER_COLORS[player.color % GameRenderer.PLAYER_COLORS.length];
-                Label nameLabel = new Label("игрок: " + player.name);
+                Color playerColor = GameRenderer.PLAYER_COLORS[player.color() % GameRenderer.PLAYER_COLORS.length];
+                Label nameLabel = new Label("игрок: " + player.name());
                 nameLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: " + toHex(playerColor) + ";");
                 infoPanel.getChildren().addAll(
                         nameLabel,
-                        new Label("счет: " + player.score),
-                        new Label("выстрелов: " + player.shots),
+                        new Label("счет: " + player.score()),
+                        new Label("выстрелов: " + player.shots()),
                         new Separator());
             }
         }
@@ -323,9 +297,9 @@ public class GameClient extends Application {
 
     private void onKeyPressed(KeyEvent event) {
         switch (event.getCode()) {
-            case W, UP -> send("UP_ON");
-            case S, DOWN -> send("DOWN_ON");
-            case SPACE -> send("SHOOT");
+            case W, UP -> sendCommand(ClientCommand.upOn());
+            case S, DOWN -> sendCommand(ClientCommand.downOn());
+            case SPACE -> sendCommand(ClientCommand.shoot());
             default -> { return; }
         }
         event.consume();
@@ -333,8 +307,8 @@ public class GameClient extends Application {
 
     private void onKeyReleased(KeyEvent event) {
         switch (event.getCode()) {
-            case W, UP -> send("UP_OFF");
-            case S, DOWN -> send("DOWN_OFF");
+            case W, UP -> sendCommand(ClientCommand.upOff());
+            case S, DOWN -> sendCommand(ClientCommand.downOff());
             default -> { return; }
         }
         event.consume();

@@ -3,12 +3,15 @@ package ru.arssedot.spring.server;
 import ru.arssedot.spring.model.Arrow;
 import ru.arssedot.spring.model.Player;
 import ru.arssedot.spring.model.Target;
+import ru.arssedot.spring.protocol.GameSnapshot;
+import ru.arssedot.spring.protocol.PlayerState;
+import ru.arssedot.spring.protocol.ServerMessage;
 
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class GameServer {
@@ -51,30 +54,30 @@ public class GameServer {
     synchronized boolean addClient(ClientHandler clientHandler) {
         Player player = clientHandler.player;
         if (clients.size() >= MAX_PLAYERS) {
-            clientHandler.send("ERROR сервер полон (макс. " + MAX_PLAYERS + ")");
+            clientHandler.send(ServerMessage.error("сервер полон (макс. " + MAX_PLAYERS + ")"));
             return false;
         }
         for (ClientHandler other : clients) {
             if (other.player.getName().equalsIgnoreCase(player.getName())) {
-                clientHandler.send("ERROR имя «" + player.getName() + "» уже занято");
+                clientHandler.send(ServerMessage.error("имя «" + player.getName() + "» уже занято"));
                 return false;
             }
         }
         player.setColorIndex(assignColor());
         player.setY(FIELD_H / 2);
         clients.add(clientHandler);
-        clientHandler.send("OK");
-        broadcast("MSG " + player.getName() + " подключился (" + clients.size() + "/" + MAX_PLAYERS + ")");
+        clientHandler.send(ServerMessage.ok());
+        broadcastText(player.getName() + " подключился (" + clients.size() + "/" + MAX_PLAYERS + ")");
         return true;
     }
 
     synchronized void removeClient(ClientHandler clientHandler) {
         clients.remove(clientHandler);
-        broadcast("MSG " + clientHandler.player.getName() + " отключился");
+        broadcastText(clientHandler.player.getName() + " отключился");
         if (gamePaused && clientHandler == pausedBy) {
             gamePaused = false;
             pausedBy = null;
-            broadcast("MSG пауза снята (игрок отключился)");
+            broadcastText("пауза снята (игрок отключился)");
             notifyAll();
         }
         if (gameRunning && clients.isEmpty()) {
@@ -90,7 +93,7 @@ public class GameServer {
             return;
         }
         clientHandler.player.setReady(true);
-        broadcast("MSG " + clientHandler.player.getName() + " готов");
+        broadcastText(clientHandler.player.getName() + " готов");
         checkAllReady();
     }
 
@@ -101,12 +104,12 @@ public class GameServer {
         if (!gamePaused) {
             gamePaused = true;
             pausedBy = clientHandler;
-            broadcast("MSG " + clientHandler.player.getName() + " поставил паузу");
+            broadcastText(clientHandler.player.getName() + " поставил паузу");
             broadcastState();
         } else if (clientHandler == pausedBy) {
             gamePaused = false;
             pausedBy = null;
-            broadcast("MSG " + clientHandler.player.getName() + " снял паузу");
+            broadcastText(clientHandler.player.getName() + " снял паузу");
             notifyAll();
         }
     }
@@ -122,7 +125,7 @@ public class GameServer {
         targetSpeed = Math.max(1, Math.min(5, speed));
         nearTarget.setSpeed(targetSpeed);
         farTarget.setSpeed(targetSpeed * 2);
-        broadcast("MSG " + clientHandler.player.getName() + " изменил скорость мишеней: " + (int) targetSpeed);
+        broadcastText(clientHandler.player.getName() + " изменил скорость мишеней: " + (int) targetSpeed);
     }
 
     private synchronized void checkAllReady() {
@@ -146,7 +149,7 @@ public class GameServer {
         gameRunning = true;
         gamePaused = false;
         pausedBy = null;
-        broadcast("MSG игра началась");
+        broadcastText("игра началась");
         notifyAll();
     }
 
@@ -198,12 +201,12 @@ public class GameServer {
             if (nearTarget.hitTest(arrow.getX(), arrow.getY())) {
                 client.player.addScore(1);
                 arrow.deactivate();
-                broadcast("MSG " + client.player.getName() + " -> ближняя мишень (+1)");
+                broadcastText(client.player.getName() + " -> ближняя мишень (+1)");
                 checkWin(client.player);
             } else if (farTarget.hitTest(arrow.getX(), arrow.getY())) {
                 client.player.addScore(2);
                 arrow.deactivate();
-                broadcast("MSG " + client.player.getName() + " -> дальняя мишень (+2)");
+                broadcastText(client.player.getName() + " -> дальняя мишень (+2)");
                 checkWin(client.player);
             }
         }
@@ -214,7 +217,7 @@ public class GameServer {
             return;
         }
 
-        broadcast("WIN " + winner.getName());
+        broadcast(ServerMessage.win(winner.getName()));
         gameRunning = false;
         gamePaused = false;
         pausedBy = null;
@@ -225,33 +228,41 @@ public class GameServer {
         notifyAll();
     }
 
-    void broadcast(String msg) {
+    void broadcast(ServerMessage message) {
         for (ClientHandler client : clients) {
-            client.send(msg);
+            client.send(message);
         }
     }
 
-    private void broadcastState() {
-        StringBuilder stateBuilder = new StringBuilder("STATE ")
-                .append(gameRunning).append(' ')
-                .append(gamePaused).append(' ')
-                .append(fmt(nearTarget.getY())).append(' ')
-                .append(fmt(farTarget.getY())).append(' ')
-                .append(fmt(targetSpeed));
+    private void broadcastText(String text) {
+        broadcast(ServerMessage.text(text));
+    }
 
+    private void broadcastState() {
+        List<PlayerState> playerStates = new ArrayList<>();
         for (ClientHandler client : clients) {
             Player player = client.player;
             Arrow arrow = player.getArrow();
-            stateBuilder.append(' ').append(player.getName())
-              .append(',').append(fmt(player.getY()))
-              .append(',').append(player.getScore())
-              .append(',').append(player.getShots())
-              .append(',').append(fmt(arrow.getX()))
-              .append(',').append(fmt(arrow.getY()))
-              .append(',').append(player.getColorIndex())
-              .append(',').append(player.isReady());
+            playerStates.add(new PlayerState(
+                    player.getName(),
+                    player.getY(),
+                    player.getScore(),
+                    player.getShots(),
+                    arrow.getX(),
+                    arrow.getY(),
+                    player.getColorIndex(),
+                    player.isReady()
+            ));
         }
-        broadcast(stateBuilder.toString());
+        GameSnapshot snapshot = new GameSnapshot(
+                gameRunning,
+                gamePaused,
+                nearTarget.getY(),
+                farTarget.getY(),
+                targetSpeed,
+                playerStates
+        );
+        broadcast(ServerMessage.snapshot(snapshot));
     }
 
     private int assignColor() {
@@ -265,9 +276,5 @@ public class GameServer {
             }
         }
         return 0;
-    }
-
-    private static String fmt(double value) {
-        return String.format(Locale.US, "%.1f", value);
     }
 }
